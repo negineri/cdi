@@ -1,5 +1,7 @@
 module github.com/negineri/cdi
 
+replace github.com/negineri/cdi/compose => ./compose
+
 go 1.14
 
 require (
@@ -22,4 +24,5 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	google.golang.org/grpc v1.30.0 // indirect
 	gotest.tools v2.2.0+incompatible // indirect
+	github.com/negineri/cdi/compose
 )
