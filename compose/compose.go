@@ -29,15 +29,15 @@ type (
 		Services map[string]services `json:"services"`
 		Volumes  map[string]volumes  `json:"volumes"`
 	}
-	userConfig struct {
-		stackName string
-		route     string
-		userID    string
+	UserConfig struct {
+		StackName string
+		Route     string
+		UserID    string
 	}
 )
 
-func NewStack(ctx context.Context, cli *client.Client, userConfig userConfig) error {
-	bytes, err := ioutil.ReadFile("stacks/" + userConfig.stackName + ".json")
+func NewStack(ctx context.Context, cli *client.Client, userConfig UserConfig) error {
+	bytes, err := ioutil.ReadFile("stacks/" + userConfig.StackName + ".json")
 	if err != nil {
 		return err
 	}
@@ -45,9 +45,15 @@ func NewStack(ctx context.Context, cli *client.Client, userConfig userConfig) er
 	if err := json.Unmarshal(bytes, &config); err != nil {
 		return err
 	}
+	for vName, _ := range config.Volumes {
+		cli.VolumeCreate(ctx, volume.VolumeCreateBody{
+			Name: userConfig.UserID + "_" + userConfig.StackName + "_" + vName})
+	}
 	for sName, service := range config.Services {
 		fmt.Printf("%s\n", sName)
-		cConfig := container.Config{AttachStdout: false, AttachStderr: false}
+		cConfig := container.Config{AttachStdout: false,
+			AttachStderr: false,
+			Volumes:      make(map[string]struct{})}
 		hConfig := container.HostConfig{
 			LogConfig: container.LogConfig{Type: "json-file"}}
 		cConfig.Image = service.Image
@@ -59,11 +65,11 @@ func NewStack(ctx context.Context, cli *client.Client, userConfig userConfig) er
 				cConfig.Volumes[ss[1]] = volumes{}
 				hConfig.Binds = append(hConfig.Binds, cVolume)
 				if strings.HasPrefix(ss[0], ".") {
-					hConfig.Binds = append(hConfig.Binds)
+					//ignore local bind
+					return errors.New("TO DO")
 				} else {
-
 					cli.VolumeCreate(ctx, volume.VolumeCreateBody{
-						Name: userConfig.userID + "_" + userConfig.stackName + "_" + ss[0]})
+						Name: userConfig.UserID + "_" + userConfig.StackName + "_" + ss[0]})
 					hConfig.Mounts = append(hConfig.Mounts,
 						mount.Mount{Target: ss[1],
 							Source:   ss[0],
@@ -72,8 +78,10 @@ func NewStack(ctx context.Context, cli *client.Client, userConfig userConfig) er
 						})
 				}
 			default:
+				//ignore "target", "source:target:ro"
 				return errors.New("TO DO")
 			}
 		}
 	}
+	return nil
 }

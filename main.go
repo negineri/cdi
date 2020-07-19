@@ -22,6 +22,7 @@ func main() {
 		panic(err)
 	}
 	//cli.ContainerCreate(ctx, &container.Config{}, &container.HostConfig{}, &network.NetworkingConfig{}, "test")
+	compose.NewStack(ctx, cli, compose.UserConfig{StackName: "wordpress", UserID: "negineri"})
 
 	for _, container := range containers {
 		fmt.Printf("%s %s\n", container.ID[:10], container.Names[0])
