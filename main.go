@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/negineri/cdi/compose"
 )
@@ -17,15 +16,18 @@ func main() {
 	}
 	ctx := context.Background()
 
-	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{})
-	if err != nil {
-		panic(err)
+	if err := compose.NewStack(ctx, cli, compose.UserConfig{StackName: "wordpress", UserID: "negineri", UID: "1000", Route: "wp"}); err != nil {
+		fmt.Printf("%s\n", err)
 	}
-	//cli.ContainerCreate(ctx, &container.Config{}, &container.HostConfig{}, &network.NetworkingConfig{}, "test")
-	compose.NewStack(ctx, cli, compose.UserConfig{StackName: "wordpress", UserID: "negineri"})
+	/*
+		containers, err := cli.ContainerList(ctx, types.ContainerListOptions{})
+		if err != nil {
+			panic(err)
+		}
 
-	for _, container := range containers {
-		fmt.Printf("%s %s\n", container.ID[:10], container.Names[0])
-	}
+		for _, container := range containers {
+			fmt.Printf("%s %s\n", container.ID[:10], container.Names[0])
+		}
+	*/
 	return
 }

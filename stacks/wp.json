@@ -4,9 +4,6 @@
     "wordpress": {
       "image": "wordpress",
       "restart": "always",
-      "ports": [
-        "8080:80"
-      ],
       "environment": [
         "WORDPRESS_DB_HOST=db",
         "WORDPRESS_DB_USER=exampleuser",
@@ -14,8 +11,7 @@
         "WORDPRESS_DB_NAME=exampledb"
       ],
       "volumes": [
-        "wordpress:/var/www/html/~${USER_ID}/${STACK_ROUTE}",
-        "content:/var/www/html/~${USER_ID}/${STACK_ROUTE}/wp-content"
+        "wordpress:/var/www/html/~${USER_ID}/${STACK_ROUTE}"
       ],
       "standby_port": "80",
       "depends_on": [
@@ -39,16 +35,6 @@
   },
   "volumes": {
     "wordpress": null,
-    "content": {
-      "driver_opts": {
-        "type": "none",
-        "device": "/home/${USER_ID}/wordpress/wp-content",
-        "o": "bind"
-      }
-    },
     "db": null
-  },
-  "chown": {
-    "content": null
   }
 }
