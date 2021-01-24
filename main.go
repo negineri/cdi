@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/docker/docker/client"
 	"github.com/negineri/cdi/compose"
@@ -16,8 +17,10 @@ func main() {
 	}
 	ctx := context.Background()
 
-	if err := compose.NewStack(ctx, cli, compose.UserConfig{StackName: "wordpress", UserID: "negineri", UID: "1000", Route: "wp"}); err != nil {
-		fmt.Printf("%s\n", err)
+	for i := 0; i < 1; i++ {
+		if err := compose.NewStack(ctx, cli, compose.UserConfig{StackName: "wp", UserID: strconv.Itoa(i), UID: "1000", Route: "wp"}); err != nil {
+			fmt.Printf("%s\n", err)
+		}
 	}
 	/*
 		containers, err := cli.ContainerList(ctx, types.ContainerListOptions{})

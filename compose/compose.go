@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"strings"
 
@@ -61,9 +62,6 @@ func NewStack(ctx context.Context, cli *client.Client, userConfig UserConfig) er
 	}
 	stackName := userConfig.UserID + "_" + userConfig.StackName
 
-	if _, err := cli.NetworkCreate(ctx, stackName+"_default", types.NetworkCreate{}); err != nil {
-		return err
-	}
 	cVolumes := make(map[string]string)
 	for vName, vOpt := range config.Volumes {
 		dName := stackName + "_" + vName
@@ -84,15 +82,23 @@ func NewStack(ctx context.Context, cli *client.Client, userConfig UserConfig) er
 			LogConfig: container.LogConfig{Type: "json-file"}}
 		nConfig := network.NetworkingConfig{EndpointsConfig: make(map[string]*network.EndpointSettings)}
 		nConfig.EndpointsConfig[stackName+"_default"] = &network.EndpointSettings{Aliases: []string{sName}}
+		if _, err := cli.NetworkInspect(ctx, stackName+"_default", types.NetworkInspectOptions{}); err != nil {
+			_, err := cli.NetworkCreate(ctx, stackName+"_default", types.NetworkCreate{})
+			if err != nil {
+				log.Print(err)
+				return nil
+			}
+		}
 		cConfig.Image = service.Image
 		cConfig.WorkingDir = service.WorkingDir
 		if _, _, err := cli.ImageInspectWithRaw(ctx, cConfig.Image); err != nil {
 			rc, err := cli.ImagePull(ctx, "docker.io/library/"+cConfig.Image, types.ImagePullOptions{})
-			io.Copy(os.Stdout, rc)
-			defer rc.Close()
 			if err != nil {
+				log.Print(err)
 				return nil
 			}
+			io.Copy(os.Stdout, rc)
+			defer rc.Close()
 		}
 		cConfig.Env = append(cConfig.Env, service.Environment...)
 		for _, cVolume := range service.Volumes {
@@ -126,17 +132,18 @@ func NewStack(ctx context.Context, cli *client.Client, userConfig UserConfig) er
 			cConfig.Labels["traefik.http.routers."+cName+".entrypoints"] = "websecure"
 			cConfig.Labels["traefik.http.routers."+cName+".tls.certresolver"] = "myresolver"
 			cConfig.Labels["traefik.http.services."+cName+".loadbalancer.server.port"] = service.StandbyPort
-			nConfig.EndpointsConfig["web_nw"] = nil
 		}
-		if _, err := cli.ContainerCreate(ctx, &cConfig, &hConfig, nil, cName); err != nil {
+		var cID string
+		if cCCB, err := cli.ContainerCreate(ctx, &cConfig, &hConfig, &nConfig, nil, cName); err != nil {
 			return err
+		} else {
+			cID = cCCB.ID
 		}
-		if err := cli.NetworkConnect(ctx, stackName+"_default", cName, nConfig.EndpointsConfig[stackName+"_default"]); err != nil {
-			return err
-		}
+
 		if service.StandbyPort != "" {
-			if err := cli.NetworkConnect(ctx, "web_nw", cName, nConfig.EndpointsConfig["web_nw"]); err != nil {
-				return err
+			if err := cli.NetworkConnect(ctx, "web_nw", cID, nil); err != nil {
+				log.Print(err)
+				return nil
 			}
 		}
 
@@ -163,7 +170,7 @@ func NewStack(ctx context.Context, cli *client.Client, userConfig UserConfig) er
 	}
 	for vName, _ := range config.Chown {
 
-		cConfig.Volumes["/mnt/"+vName] = struct{}{}
+		//cConfig.Volumes["/mnt/"+vName] = struct{}{}
 		hConfig.Binds = append(hConfig.Binds, cVolumes[vName]+":/mnt/"+vName)
 		/*
 			hConfig.Mounts = append(hConfig.Mounts,
@@ -175,7 +182,7 @@ func NewStack(ctx context.Context, cli *client.Client, userConfig UserConfig) er
 		*/
 
 	}
-	if _, err := cli.ContainerCreate(ctx, &cConfig, &hConfig, nil, chownXID.String()); err != nil {
+	if _, err := cli.ContainerCreate(ctx, &cConfig, &hConfig, nil, nil, chownXID.String()); err != nil {
 		return err
 	}
 	// TODO need sleep
